@@ -7,12 +7,13 @@ UdpServer::UdpServer(quint16 port, QObject *parent)
     , mPort(port)
 {
     mUdpSocket = new QUdpSocket(this);
-    mUdpSocket->bind(QHostAddress::LocalHost, 1234);
-    // connect(mUdpSocket, &QUdpSocket::readyRead, this, &UdpServer::OnReceiverDataHandle);
+    mUdpSocket->bind(QHostAddress::LocalHost, 8880, QUdpSocket::ShareAddress);
+
     mTimer = new QTimer(this);
     mTimer->setInterval(1000);
     connect(mTimer, SIGNAL(timeout()), this, SLOT(OnSendDataHandle()));
     mTimer->start();
+    connect(mUdpSocket, &QUdpSocket::readyRead, this, &UdpServer::OnReceiverDataHandle);
 }
 
 UdpServer::~UdpServer()
@@ -116,11 +117,119 @@ void UdpServer::EncodeMsg(QByteArray *message)
     SEQ++;
     TYPE++;
 
+    /*---------------------SUB3--------------------------*/
+    /*---Hit---*/
+    QByteArray hit1;
+    uint16_t loc3 = 0x1001;
+    uint8_t channelType3 = 0x01;
+    uint16_t vEnc = 0x3c50;
+    uint16_t doppler = 0x0123;
+    uint8_t freqIndexHit = 0x01;
+    uint8_t merit = 0x51;
+    uint8_t enBit3 = 0x03;
+    uint32_t time3 = 0x43215432;
+    uint32_t power = 0x00004321;
+    QDataStream streamHit1(&hit1, QDataStream::ReadWrite);
+    streamHit1.setByteOrder(QDataStream::LittleEndian);
+    streamHit1 << loc3 << channelType3 << vEnc << doppler << freqIndexHit << merit << enBit3 << time3
+               << (uint8_t)0xFF << (uint8_t)0xFF << (uint8_t)0xFF << (uint8_t)0xFF << power;
+
+    QByteArray sub3;
+    QDataStream stream3(&sub3, QDataStream::ReadWrite);
+    stream3.setByteOrder(QDataStream::LittleEndian);
+    stream3 << STX << SEQ << SRC_ID << TYPE << len;
+    stream3.writeRawData(hit1.data(), hit1.size());
+    stream3.writeRawData(hit1.data(), hit1.size());
+    stream3.writeRawData(hit1.data(), hit1.size());
+    stream3 << checksum << ETX;
+    uint16_t len3 = sub3.size();
+    // qDebug() << sub3.size();
+    sub3[6] = uint8_t(len3 & 0xFF);
+    sub3[7] = uint8_t(len3 >> 8);
+    uint16_t checksum3 = 0;
+    for (int i = 0; i < len3 - 4; i++)
+        checksum3 ^= sub3[i];
+    sub3[len3 - 3] = uint8_t(checksum3 >> 8);
+    sub3[len3 - 4] = uint8_t(checksum3 & 0xFF);
+    SEQ++;
+    TYPE++;
+
+    /*---------------------SUB4--------------------------*/
+    /*---Hit---*/
+    QByteArray hit2;
+    QDataStream streamHit2(&hit2, QDataStream::ReadWrite);
+    streamHit2.setByteOrder(QDataStream::LittleEndian);
+    streamHit2 << loc3 << channelType3 << vEnc << freqIndexHit << merit << enBit3 << time3
+               << (uint8_t)0xFF << (uint8_t)0xFF << (uint8_t)0xFF << (uint8_t)0xFF << power;
+    QByteArray sub4;
+    QDataStream stream4(&sub4, QDataStream::ReadWrite);
+    stream4.setByteOrder(QDataStream::LittleEndian);
+    stream4 << STX << SEQ << SRC_ID << TYPE << len;
+    stream4.writeRawData(hit2.data(), hit2.size());
+    stream4.writeRawData(hit2.data(), hit2.size());
+    stream4 << checksum << ETX;
+    uint16_t len4 = sub4.size();
+    // qDebug() << sub4.size();
+    sub4[6] = uint8_t(len4 & 0xFF);
+    sub4[7] = uint8_t(len4 >> 8);
+    uint16_t checksum4 = 0;
+    for (int i = 0; i < len4 - 4; i++)
+        checksum4 ^= sub4[i];
+    sub4[len4 - 3] = uint8_t(checksum4 >> 8);
+    sub4[len4 - 4] = uint8_t(checksum4 & 0xFF);
+    SEQ++;
+    TYPE++;
+
+    /*---------------------SUB5--------------------------*/
+    QByteArray sub5;
+    QDataStream stream5(&sub5, QDataStream::ReadWrite);
+    stream5.setByteOrder(QDataStream::LittleEndian);
+    uint32_t freq_0 = 0x00;
+    uint32_t freq_1 = 0x00;
+    uint32_t freq_2 = 0x01;
+    uint32_t freq_3 = 0x00;
+    uint32_t freq_4 = 0x01;
+    uint32_t freq_5 = 0x00;
+    stream5 << STX << SEQ << SRC_ID << TYPE << len << freq_0
+            << freq_1 << freq_2 << freq_3 << freq_4 << freq_5 << checksum << ETX;
+    uint16_t len5 = sub5.size();
+    // qDebug() << sub5.size();
+    sub5[6] = uint8_t(len5 & 0xFF);
+    sub5[7] = uint8_t(len5 >> 8);
+    uint16_t checksum5 = 0;
+    for (int i = 0; i < len5 - 4; i++)
+        checksum5 ^= sub5[i];
+    sub5[len5 - 3] = uint8_t(checksum5 >> 8);
+    sub5[len5 - 4] = uint8_t(checksum5 & 0xFF);
+    SEQ++;
+    TYPE++;
+
+    /*---------------------SUB6--------------------------*/
+    QByteArray sub6;
+    QDataStream stream6(&sub6, QDataStream::ReadWrite);
+    stream6.setByteOrder(QDataStream::LittleEndian);
+    stream6 << STX << SEQ << SRC_ID << TYPE << len << (uint8_t)0x01 << checksum << ETX;
+    uint16_t len6 = sub6.size();
+    // qDebug() << sub6.size();
+    sub6[6] = uint8_t(len6 & 0xFF);
+    sub6[7] = uint8_t(len6 >> 8);
+    uint16_t checksum6 = 0;
+    for (int i = 0; i < len6 - 4; i++)
+        checksum6 ^= sub6[i];
+    sub6[len6 - 3] = uint8_t(checksum6 >> 8);
+    sub6[len6 - 4] = uint8_t(checksum6 & 0xFF);
+
+
     /*----------------- Message ------------------*/
     QDataStream stream(message, QDataStream::ReadWrite);
     stream.setByteOrder(QDataStream::LittleEndian);
     stream.writeRawData(sub1.data(), sub1.size());
     stream.writeRawData(sub2.data(), sub2.size());
+    stream.writeRawData(sub3.data(), sub3.size());
+    stream.writeRawData(sub4.data(), sub4.size());
+    stream.writeRawData(sub5.data(), sub5.size());
+    stream.writeRawData(sub6.data(), sub6.size());
+    qDebug() << __FUNCTION__ << "Size Message: " << message->size();
 }
 
 void UdpServer::OnReceiverDataHandle()
@@ -135,10 +244,12 @@ void UdpServer::OnSendDataHandle()
 {
     QByteArray datagram;
     EncodeMsg(&datagram);
-    qDebug() << __FUNCTION__ << "Size Message: " << datagram.size();
 
-    if (mUdpSocket)
+    if (mUdpSocket){
+        qDebug() << __FUNCTION__ << "Size Message: " << datagram.size();
         mUdpSocket->writeDatagram(datagram, QHostAddress::LocalHost, 8889);
+        // mUdpSocket->writeDatagram("123456789012345", QHostAddress::LocalHost, 8889);
+    }
 }
 
 
