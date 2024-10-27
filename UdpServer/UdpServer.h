@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QUdpSocket>
 #include <QTimer>
+#include "BinaryFileManager.h"
 
 class UdpServer : public QObject
 {
@@ -20,6 +21,8 @@ private:
     QUdpSocket * mUdpSocket;
     QTimer *mTimer;
     quint16 mPort;
+    BinaryFileManager *mBinFile;
+    QByteArray datagram;
 };
 
 #endif // UDPSERVER_H

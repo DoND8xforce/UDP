@@ -1,13 +1,23 @@
 #include "UdpServer.h"
 #include <QNetworkDatagram>
 #include <QDebug>
-
+#include <QApplication>
 UdpServer::UdpServer(quint16 port, QObject *parent)
     : QObject(parent)
     , mPort(port)
 {
     mUdpSocket = new QUdpSocket(this);
-    mUdpSocket->bind(QHostAddress::LocalHost, 8880, QUdpSocket::ShareAddress);
+    mUdpSocket->bind(8880);
+
+    QString dirPath = QApplication::applicationDirPath() + "/data.bin";
+    mBinFile = new BinaryFileManager(dirPath);
+    //create file with 50 message
+    int index = 50;
+    while(index--){
+        EncodeMsg(&datagram);
+        mBinFile->Write(datagram, QIODevice::Append);
+        datagram.clear();
+    }
 
     mTimer = new QTimer(this);
     mTimer->setInterval(1000);
@@ -221,8 +231,11 @@ void UdpServer::EncodeMsg(QByteArray *message)
 
 
     /*----------------- Message ------------------*/
+    static uint8_t package = 0;
+    package++;
     QDataStream stream(message, QDataStream::ReadWrite);
     stream.setByteOrder(QDataStream::LittleEndian);
+    stream << (uint8_t)0x02 << (uint8_t)package;
     stream.writeRawData(sub1.data(), sub1.size());
     stream.writeRawData(sub2.data(), sub2.size());
     stream.writeRawData(sub3.data(), sub3.size());
@@ -242,14 +255,32 @@ void UdpServer::OnReceiverDataHandle()
 
 void UdpServer::OnSendDataHandle()
 {
-    QByteArray datagram;
-    EncodeMsg(&datagram);
-
-    if (mUdpSocket){
-        qDebug() << __FUNCTION__ << "Size Message: " << datagram.size();
-        mUdpSocket->writeDatagram(datagram, QHostAddress::LocalHost, 8889);
-        // mUdpSocket->writeDatagram("123456789012345", QHostAddress::LocalHost, 8889);
-    }
+    int t;
+    QByteArray bytesLength;
+    static int index = 0;
+    static int package = 0;
+    if (!mBinFile->Read(bytesLength, index, 4))
+        return;
+    uint8_t u0 = bytesLength[0];
+    uint8_t u1 = bytesLength[1];
+    uint8_t u2 = bytesLength[2];
+    uint8_t u3 = bytesLength[3];
+    int len = (u3 << 24) + (u2 << 16) + (u1 << 8) + u0;
+    index += 4;
+    if (!mBinFile->Read(datagram, index, index+len))
+        return;
+    t = datagram[0];
+    package = datagram[1];
+    QByteArray ba(datagram.data() + 2, len-2);
+    // if (mUdpSocket){
+    //     qDebug() << __FUNCTION__ << "Size Message: " << datagram.size();
+    //     mUdpSocket->writeDatagram(datagram, QHostAddress::Any, mPort);
+    // }
+    index += len;
+    datagram.clear();
+    mTimer->stop();
+    mTimer->setInterval(t);
+    mTimer->start();
 }
 
 
