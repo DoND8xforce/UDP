@@ -11,13 +11,13 @@ UdpServer::UdpServer(quint16 port, QObject *parent)
 
     QString dirPath = QApplication::applicationDirPath() + "/data.bin";
     mBinFile = new BinaryFileManager(dirPath);
-    //create file with 50 message
-    int index = 50;
-    while(index--){
-        EncodeMsg(&datagram);
-        mBinFile->Write(datagram, QIODevice::Append);
-        datagram.clear();
-    }
+    //create file with 240 package
+    // int index = 240;
+    // while(index--){
+    //     EncodeMsg(&datagram);
+    //     mBinFile->Write(datagram, QIODevice::Append);
+    //     datagram.clear();
+    // }
 
     mTimer = new QTimer(this);
     mTimer->setInterval(1000);
@@ -31,30 +31,20 @@ UdpServer::~UdpServer()
 
 }
 
-uint16_t getHEnc()
+int16_t getHEnc()
 {
-    uint16_t v = (1 << 14) - 1;
-    uint16_t angle = (v/360);
-    static uint16_t count = 0;
-    uint16_t h_Enc = 0;
-    if(count == 360)
-        count = 1;
-    h_Enc = angle * count;
-    count ++;
-
+    static int16_t h_Enc = 0;
+    h_Enc += 410;
+    if (h_Enc > 16384)
+        h_Enc = 0;
     return h_Enc;
 }
-uint16_t GetVEnc()
+int16_t GetVEnc()
 {
-    int16_t min_value = -(1 << 13);
-    int16_t max_value = (1 << 13) -1;
-    uint16_t angle = (max_value - min_value +1)/(180-(-180) + 1);
-    static int16_t count = -180;
-    if(count == 180)
-        count = -180;
-    int16_t v_Enc = angle * count;
-    count++;
-
+    static int16_t v_Enc = -8193;
+    v_Enc += 410;
+    if (v_Enc > 8193)
+        v_Enc = 0;
     return v_Enc;
 }
 
@@ -235,7 +225,7 @@ void UdpServer::EncodeMsg(QByteArray *message)
     package++;
     QDataStream stream(message, QDataStream::ReadWrite);
     stream.setByteOrder(QDataStream::LittleEndian);
-    stream << (uint8_t)0x02 << (uint8_t)package;
+    stream << (uint8_t)0xF0 << (uint8_t)package;
     stream.writeRawData(sub1.data(), sub1.size());
     stream.writeRawData(sub2.data(), sub2.size());
     stream.writeRawData(sub3.data(), sub3.size());
@@ -255,7 +245,7 @@ void UdpServer::OnReceiverDataHandle()
 
 void UdpServer::OnSendDataHandle()
 {
-    int t;
+    uint8_t t;
     QByteArray bytesLength;
     static int index = 0;
     static int package = 0;
@@ -269,13 +259,13 @@ void UdpServer::OnSendDataHandle()
     index += 4;
     if (!mBinFile->Read(datagram, index, index+len))
         return;
-    t = datagram[0];
+    t = (uint8_t)datagram[0];
     package = datagram[1];
     QByteArray ba(datagram.data() + 2, len-2);
-    // if (mUdpSocket){
-    //     qDebug() << __FUNCTION__ << "Size Message: " << datagram.size();
-    //     mUdpSocket->writeDatagram(datagram, QHostAddress::Any, mPort);
-    // }
+    qDebug() << __FUNCTION__ << ba.size();
+    if (mUdpSocket){
+        mUdpSocket->writeDatagram(ba, QHostAddress::Any, mPort);
+    }
     index += len;
     datagram.clear();
     mTimer->stop();
